@@ -1,0 +1,59 @@
+version: '3'
+
+vars:
+  NAME: tree-sitter-ruby
+  SRC_DIR: src
+  PARSER: '{{.SRC_DIR}}/parser.c'
+  # Find all .c files in src directory, excluding parser.c if we wanted to be fancy,
+  # but explicitly listing commonly used ones or using wildcard is safer.
+  # go-task doesn't have built-in glob for vars in the same way make does effectively dynamic.
+  # We will use sources explicitly or assume standard tree-sitter layout.
+  SOURCES: 'src/parser.c src/scanner.c'
+  OBJECTS: 'src/parser.o src/scanner.o'
+  CFLAGS: '-I{{.SRC_DIR}} -std=c11 -fPIC -O2'
+  CC: cc
+  AR: ar
+
+tasks:
+  default:
+    cmds:
+      - task: all
+
+  all:
+    desc: Build both static and shared libraries
+    cmds:
+      - task: static
+      - task: shared
+
+  compile:
+    desc: Compile source files into object files
+    sources:
+      - '{{.SRC_DIR}}/*.c'
+      - '{{.SRC_DIR}}/*.h'
+    generates:
+      - '{{.SRC_DIR}}/parser.o'
+      - '{{.SRC_DIR}}/scanner.o'
+    cmds:
+      - '{{.CC}} {{.CFLAGS}} -c src/parser.c -o src/parser.o'
+      - '{{.CC}} {{.CFLAGS}} -c src/scanner.c -o src/scanner.o'
+
+  static:
+    desc: Build static library (.a)
+    deps: [compile]
+    generates:
+      - 'lib{{.NAME}}.a'
+    cmds:
+      - '{{.AR}} rcs lib{{.NAME}}.a {{.OBJECTS}}'
+
+  shared:
+    desc: Build shared library (.so)
+    deps: [compile]
+    generates:
+      - 'lib{{.NAME}}.so'
+    cmds:
+      - '{{.CC}} -shared -o lib{{.NAME}}.so {{.OBJECTS}}'
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f {{.OBJECTS}} lib{{.NAME}}.a lib{{.NAME}}.so
